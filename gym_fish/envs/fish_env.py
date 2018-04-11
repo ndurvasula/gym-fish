@@ -77,7 +77,7 @@ class FishEnv(gym.Env):
     metadata = {'render.modes' : ['human']}
     def __init__(self):
         self.observation_space = spaces.Discrete(DAYS)
-        self.action_space = spaces.Box(low=0, high=12, shape=1)
+        self.action_space = spaces.Box(low=np.array([0]), high=np.array([12]), dtype=np.float32)
         self.time = 0
 
     def reset(self):
@@ -85,6 +85,7 @@ class FishEnv(gym.Env):
         return self.time
 
     def step(self, action):
+        self.time += 1
         return self.time, transition(action,self.time), self.time==DAYS, {}
 
     def render(self, mode='human', close='False'):
