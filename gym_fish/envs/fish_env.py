@@ -10,6 +10,8 @@ def f(x,k):
 def count(hours):
     return np.random.normal(hours*FPH, np.sqrt(hours*FSTD**2))
 
+DELTA = 20 #Discretize state space
+
 DAYS = 100
 TYPES = 5 #1 indexed
 e = fsolve(f, .5, (TYPES))[0]
@@ -77,7 +79,7 @@ class FishEnv(gym.Env):
     metadata = {'render.modes' : ['human']}
     def __init__(self):
         self.observation_space = spaces.Discrete(DAYS)
-        self.action_space = spaces.Box(low=np.array([0]), high=np.array([12]), dtype=np.float32)
+        self.action_space = spaces.Discrete(12*DELTA)
         self.time = 0
 
     def reset(self):
@@ -86,7 +88,7 @@ class FishEnv(gym.Env):
 
     def step(self, action):
         self.time += 1
-        return self.time, transition(action,self.time), self.time==DAYS, {}
+        return self.time, transition(action*1.0/DELTA,self.time), self.time==DAYS, {}
 
     def render(self, mode='human', close='False'):
         return fish
