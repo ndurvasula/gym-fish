@@ -10,7 +10,10 @@ def f(x,k):
 def count(hours):
     return np.random.normal(hours*FPH, np.sqrt(hours*FSTD**2))
 
-DELTA = 20 #Discretize state space
+DISCRETIZE = True #Discretize action space
+DELTA = 20 
+
+EXTEND = True #Make state space continuous
 
 DAYS = 100
 TYPES = 5 #1 indexed
@@ -78,8 +81,14 @@ def reward(hours,day,fish,qualities):
 class FishEnv(gym.Env):
     metadata = {'render.modes' : ['human']}
     def __init__(self):
-        self.observation_space = spaces.Discrete(DAYS)
-        self.action_space = spaces.Discrete(12*DELTA)
+        if EXTEND:
+            self.observation_space = spaces.Box(low = np.array([0]), high = np.array([DAYS]), dtype = np.float32)
+        else:
+            self.observation_space = spaces.Discrete(DAYS)
+        if DISCRETIZE:
+            self.action_space = spaces.Discrete(12*DELTA)
+        else:
+            self.action_space= spaces.Box(low=np.array([0]), high=np.array([12]), dtype = np.float32)
         self.time = 0
 
     def reset(self):
@@ -88,7 +97,12 @@ class FishEnv(gym.Env):
 
     def step(self, action):
         self.time += 1
-        return self.time, transition(action*1.0/DELTA,self.time), self.time==DAYS, {}
+        if DISCRETIZE:
+            act = action*1.0/DELTA
+        else:
+            act = action
+        return self.time, transition(act,self.time), self.time==DAYS, {}
 
     def render(self, mode='human', close='False'):
+        global fish
         return fish
