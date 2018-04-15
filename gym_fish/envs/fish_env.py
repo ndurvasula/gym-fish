@@ -2,98 +2,77 @@ import numpy as np
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
-from scipy.optimize import fsolve
+from scipy.stats import norm
 
-def f(x,k):
-    return x**(k+1) - 2*x + 1
+def trawl():
+    return np.random.normal(TRAWL, FSTD)
 
-def count(hours):
-    return np.random.normal(hours*FPH, np.sqrt(hours*FSTD**2))
+def fPMF(depth):
+    raw = np.array([norm.cdf(depth+RADIUS, loc=MEANS[i], scale=STDS[i]) - norm.cdf(depth-RADIUS, loc=MEANS[i], scale=STDS[i]) for i in range(TYPES)])
+    return raw/np.sum(raw)
 
 DISCRETIZE = True #Discretize action space
-DELTA = 20 
+DELTA = 100
 
-EXTEND = True #Make state space continuous
+DAYS = 365
+TYPES = 3 #1 indexed
 
-DAYS = 100
-TYPES = 5 #1 indexed
-e = fsolve(f, .5, (TYPES))[0]
-P = np.array([e**i for i in range(1,TYPES+1)])
+#Action space <depth> ranges from 0 to 1
 
-#Action space <hours> ranges from 0 to 12 hours
+#Fish and STD on trawl
+TRAWL = 30
+FSTD = 2
 
-#Fish per hour and STD on FPH
-FPH = 20
-FSTD = 5
+#Trawl radius
+RADIUS = .05
+
+#Fish locations
+MEANS = np.array([i*1.0/(TYPES-1) for i in range(TYPES)])
+STDS = np.array([1.0/(6*(TYPES-1)) for i in range(TYPES)])
+
 
 #Pricing
 
-#Gas pricing in dollars per gallon
-GAS_MEAN = 3
-GAS_PERIOD = 100 #in days
-GAS_AMPLITUDE = .5
-GAS_STD = .1
-
-#Gallons per hour
-GUSE = 5
-GUSTD = .1
-
 #Fish pricing
-BASE = 1 #Expected price for worst fish
-STD = .1 #Standard deviation on fish price
-PERIOD = 100 #Period for type 1 fish
-RATE = 1/2 #Ratio of successive type periods
-SELL = .05 #Expected time until one fish is sold
-SELL_STD = .005
+BASE = 1 #Worst possible fish price
+MAX = 3 #Best possible fish price
+PERIOD = 365.0 #Time for pricing cycle to repeat itself
+K = .2 #Spread factor
 
-def fish_price(typ, quality, day):
-    base = BASE+(typ+quality)
-    pd = PERIOD*RATE**(typ-1)
-    mean = base + np.sin(day*(2*np.pi)/pd)
-    return np.random.normal(mean,FSTD)
+def prices(day):
+    inp = .5 - .5*np.cos((2*np.pi)*day/PERIOD)
+    raw = np.array([norm.cdf(inp+K, loc=MEANS[i], scale=STDS[i]) - norm.cdf(inp-K, loc=MEANS[i], scale=STDS[i]) for i in range(TYPES)])
+    return BASE + (MAX-BASE)*raw/np.sum(raw)
 
-def gas_cost(day):
-    return GAS_MEAN+np.random.normal(np.sin(day*(2*np.pi)/GAS_PERIOD),GAS_STD)
-
-def gas_use(hrs):
-    return sum(np.random.normal(GUSE,GUSTD,int(hrs)))+(hrs-int(hrs))*np.random.normal(GUSE,GUSTD)
-
-def transition(hours,day):
+def transition(depth,day):
     global fish
-    fish = np.random.multinomial(abs(np.round(count(hours))),P)
-    qualities = [np.random.uniform(0,1,fish[i]) for i in range(TYPES)]
-    return reward(hours,day,fish,qualities)
+    fish = np.random.multinomial(abs(np.round(trawl())),fPMF(depth))
+    arr = [i for i in fish]
+    arr.append(day)
+    return np.array(arr)
 
-def reward(hours,day,fish,qualities):
-    reward = -gas_cost(day)*gas_use(hours)
-    fsell = fish.copy()
-    time_remaining = 12-hours
-    while time_remaining > 0 and sum(fsell) > 0:
-        time_remaining -= np.random.normal(SELL,SELL_STD)
-        sell_dist = np.ceil(fsell/sum(fsell))
-        sold = np.where(np.random.multinomial(1,sell_dist/np.count_nonzero(sell_dist))==1)[0][0]
-        fsell[sold] -= 1
-        qual = qualities[sold][-1]
-        qualities[sold] = qualities[sold][:-1]
-        reward += fish_price(sold+1,qual,day)
-    return reward
+def reward(fish,day):
+    p = prices(day)
+    return sum([p[i]*fish[i] for i in range(TYPES)])
 
 class FishEnv(gym.Env):
     metadata = {'render.modes' : ['human']}
     def __init__(self):
-        if EXTEND:
-            self.observation_space = spaces.Box(low = np.array([0]), high = np.array([DAYS]), dtype = np.float32)
-        else:
-            self.observation_space = spaces.Discrete(DAYS)
+        arr = [spaces.Discrete(TRAWL+5*FSTD) for i in range(TYPES)]
+        arr.append(spaces.Discrete(DAYS))
+        self.observation_space = spaces.Tuple(tuple(arr))
+
         if DISCRETIZE:
-            self.action_space = spaces.Discrete(12*DELTA)
+            self.action_space = spaces.Discrete(DELTA)
         else:
-            self.action_space= spaces.Box(low=np.array([0]), high=np.array([12]), dtype = np.float32)
+            self.action_space= spaces.Box(low=np.array([0]), high=np.array([1]), dtype = np.float32)
         self.time = 0
 
     def reset(self):
         self.time = 0
-        return self.time
+        arr = [0 for i in range(TYPES)]
+        arr.append(self.time)
+        return np.array(arr)
 
     def step(self, action):
         self.time += 1
@@ -101,8 +80,8 @@ class FishEnv(gym.Env):
             act = action*1.0/DELTA
         else:
             act = action
-        return self.time, transition(act,self.time), self.time==DAYS, {}
+        return transition(act,self.time), reward(fish, self.time), self.time==DAYS-1, {}
 
     def render(self, mode='human', close='False'):
         global fish
-        return fish
+        print(fish,self.time)
