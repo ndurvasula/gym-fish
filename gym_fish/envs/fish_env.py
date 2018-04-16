@@ -11,7 +11,7 @@ def fPMF(depth):
     raw = np.array([norm.cdf(depth+RADIUS, loc=MEANS[i], scale=STDS[i]) - norm.cdf(depth-RADIUS, loc=MEANS[i], scale=STDS[i]) for i in range(TYPES)])
     return raw/np.sum(raw)
 
-DISCRETIZE = True #Discretize action space
+DISCRETIZE = False #Discretize action space
 DELTA = 100
 
 DAYS = 365
@@ -47,9 +47,7 @@ def prices(day):
 def transition(depth,day):
     global fish
     fish = np.random.multinomial(abs(np.round(trawl())),fPMF(depth))
-    arr = [i for i in fish]
-    arr.append(day)
-    return np.array(arr)
+    return fish
 
 def reward(fish,day):
     p = prices(day)
@@ -59,7 +57,6 @@ class FishEnv(gym.Env):
     metadata = {'render.modes' : ['human']}
     def __init__(self):
         arr = [spaces.Discrete(TRAWL+5*FSTD) for i in range(TYPES)]
-        arr.append(spaces.Discrete(DAYS))
         self.observation_space = spaces.Tuple(tuple(arr))
 
         if DISCRETIZE:
@@ -71,10 +68,10 @@ class FishEnv(gym.Env):
     def reset(self):
         self.time = 0
         arr = [0 for i in range(TYPES)]
-        arr.append(self.time)
         return np.array(arr)
 
     def step(self, action):
+        action = action[0]
         self.time += 1
         if DISCRETIZE:
             act = action*1.0/DELTA
