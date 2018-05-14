@@ -11,11 +11,11 @@ def fPMF(depth):
     raw = np.array([norm.cdf(depth+RADIUS, loc=MEANS[i], scale=STDS[i]) - norm.cdf(depth-RADIUS, loc=MEANS[i], scale=STDS[i]) for i in range(TYPES)])
     return raw/np.sum(raw)
 
-DISCRETIZE = False #Discretize action space
+DISCRETIZE = True #Discretize action space
 DELTA = 100
 
 DAYS = 365
-TYPES = 3 #1 indexed
+TYPES = 5 #1 indexed
 
 #Action space <depth> ranges from 0 to 1
 
@@ -69,6 +69,23 @@ class FishEnv(gym.Env):
         self.time = 0
         arr = [0 for i in range(TYPES)]
         return np.array(arr)
+
+    def initialize(discretize=DISCRETIZE, delta=DELTA, days=DAYS, types=TYPES, trawl=TRAWL, fstd=FSTD,\
+                   radius=RADIUS, means=MEANS, stds=STDS, base=BASE, mx=MAX, period=PERIOD, k=K):
+        global DISCRETIZE, DELTA, DAYS, TYPES, TRAWL, FSTD, RADIUS, MEANS, STDS, BASE, MAX, PERIOD, K
+        DISCRETIZE = discretize
+        DELTA = delta
+        DAYS = days
+        TYPES = types
+        TRAWL = trawl
+        FSTD = FSTD
+        RADIUS = radius
+        MEANS = means
+        STDS = stds
+        BASE = base
+        MAX = mx
+        PERIOD = period
+        K = k
 
     def step(self, action):
         action = action[0]
