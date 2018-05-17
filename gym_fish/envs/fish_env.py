@@ -4,7 +4,9 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 from scipy.stats import norm
 
-def trawl():
+def trawl(depth):
+    if SBDEPTH:
+        return np.random.normal(TRAWL+DV*np.sin(2*np.pi*depth), FSTD)
     return np.random.normal(TRAWL, FSTD)
 
 def fPMF(depth):
@@ -30,6 +32,8 @@ RADIUS = .05
 MEANS = np.array([i*1.0/(TYPES-1) for i in range(TYPES)])
 STDS = np.array([1.0/(6*(TYPES-1)) for i in range(TYPES)])
 
+SBDEPTH = False
+DV = 5
 
 #Pricing
 
@@ -46,7 +50,7 @@ def prices(day):
 
 def transition(depth,day):
     global fish
-    fish = np.random.multinomial(abs(np.round(trawl())),fPMF(depth))
+    fish = np.random.multinomial(abs(np.round(trawl(depth))),fPMF(depth))
     return fish
 
 def reward(fish,day):
@@ -71,8 +75,8 @@ class FishEnv(gym.Env):
         return np.array(arr)
 
     def initialize(discretize=DISCRETIZE, delta=DELTA, days=DAYS, types=TYPES, trawl=TRAWL, fstd=FSTD,\
-                   radius=RADIUS, means=MEANS, stds=STDS, base=BASE, mx=MAX, period=PERIOD, k=K):
-        global DISCRETIZE, DELTA, DAYS, TYPES, TRAWL, FSTD, RADIUS, MEANS, STDS, BASE, MAX, PERIOD, K
+                   radius=RADIUS, means=MEANS, stds=STDS, base=BASE, mx=MAX, period=PERIOD, k=K, sbdepth=SBDEPTH, dv=DV):
+        global DISCRETIZE, DELTA, DAYS, TYPES, TRAWL, FSTD, RADIUS, MEANS, STDS, BASE, MAX, PERIOD, K, SBDEPTH, DV
         DISCRETIZE = discretize
         DELTA = delta
         DAYS = days
@@ -86,6 +90,8 @@ class FishEnv(gym.Env):
         MAX = mx
         PERIOD = period
         K = k
+        SBDEPTH=sbdepth
+        DV=dv
 
     def step(self, action):
         action = action[0]
